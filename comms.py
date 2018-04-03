@@ -1,0 +1,118 @@
+from configurations import *
+import time
+import pickle
+from getpass import getpass
+
+import ssh_connection as ssh
+import telnet_connection as telnet
+from show_version_parser import process_show_version
+
+
+class Network_Device(object):
+    """Container for network device attributes."""
+    def __init__(self, ip, username, password):
+        self.ip = ip
+        self.username = username
+        self.password = password
+        self.show_version = ''
+
+
+def ssh_main():
+    """Process show version using SSH."""
+    ip = raw_input("Enter IP Address: ")
+    username = 'pyclass'
+    password = getpass()
+
+    test_device = NetworkDevice(ip, username, password)
+
+    (remote_conn_pre, remote_conn, _) = ssh.establish_connection(ip, username, password)
+    ssh.disable_paging(remote_conn)
+    remote_conn.send("\n")
+    remote_conn.send("show version\n")
+
+    # Read the output from the 'show version' command
+    test_device.show_version = ssh.read_ssh_data(remote_conn)
+    remote_conn_pre.close()
+    process_show_version(test_device)
+
+    # Print to stdout for verification
+    net_device_verification(test_device)
+
+    # Write object to a file
+    with open('ssh_file.pkl', 'wb') as f:
+        pickle.dump(test_device, f)
+
+
+def telnet_main():
+    """Process show version using telnet."""
+    ip = raw_input("Enter IP Address: ")
+    username = 'pyclass'
+    password = getpass()
+
+    test_device2 = NetworkDevice(ip, username, password)
+
+    remote_conn = telnet.establish_connection(ip, username, password)
+    telnet.disable_paging(remote_conn)
+
+    remote_conn.write("\n")
+    remote_conn.write("show version\n")
+
+    time.sleep(1)
+    test_device2.show_version = remote_conn.read_very_eager()
+
+    remote_conn.close()
+    process_show_version(test_device2)
+
+    # Print to stdout for verification
+    net_device_verification(test_device2)
+
+    # Write object to a file
+    with open('telnet_file.pkl', 'wb') as f:
+        pickle.dump(test_device2, f)
+
+
+def net_device_verification(net_device):
+    """Prints out a set of attributes for a NetworkDevice object."""
+    print_attr = [
+        'hostname',
+        'ip',
+        'username',
+        'password',
+        'device_type',
+        'vendor',
+        'model',
+        'os_version',
+        'uptime',
+        'serial_number',
+    ]
+
+    # Uses getattr to get the right attribute
+    for field in print_attr:
+        val = getattr(net_device, field)
+        print ("%15s: %-40s" % (field, val))
+    print()
+
+
+def main():
+    """
+    Login to a network device (using either telnet or SSH) and retrieve 'show version'
+    from the device.
+    """
+    print()
+    print ("Using SSH:")
+    ssh_main()
+
+    print ("Using telnet:")
+    telnet_main()
+
+    print ("\n")
+    print ("Reading objects from pickle files:")
+    my_files = ['ssh_file.pkl', 'telnet_file.pkl']
+    for a_file in my_files:
+        with open(a_file, 'rb') as f:
+            netdev_obj = pickle.load(f)
+            net_device_verification(netdev_obj)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,129 @@
+import re
+from uptime import Uptime
+from ciscoconfparse import CiscoConfParse
+import io
+
+
+
+def process_show_cdp_neighbors_detail(net_device):
+    '''
+    Process the show_version output for net_device
+    Assign the following attributes to the net_device object
+    hostname
+    device_type          # router, switch, firewall, etc.
+    vendor
+    model
+    os_version
+    uptime               # seconds
+    serial_number
+    '''
+    
+       
+    #with open('somefile.csv', 'r') as filehandle:
+    for ln in io.open('Devices/showcdp.txt', newline='\r'):
+    #for ln in show_cdp_neighbors.splitlines():
+        #print("TEsT")
+        #print (ln)
+    
+        b = re.search(r"(.+?) (Ser|Eth) (.+?) (.+?) .*",ln)
+        if b:
+            print ("gp1= "+b.group(1),
+                   "gp2= "+b.group(2),
+                   "gp3= "+b.group(3))
+            command ="show cdp entry "+b.group(1)
+            net_device.remote_conn.write(command.encode())
+            time.sleep(delay)
+            show_detail = net_device.remote_conn.read_very_eager().decode()
+            print (show_detail)       
+    
+    #parse = CiscoConfParse("Devices/showcdp.txt")
+    #interfaces = parse.find_objects("*Ser" or "*Eth")
+    #print ("Interafcaes")
+    #print (interfaces)
+
+    # Process show_version output
+##    net_device.vendor, net_device.model = obtain_vendor_model(show_ver)
+##    net_device.os_version = obtain_os_version(show_ver)
+##    net_device.uptime = obtain_uptime(show_ver)
+##    net_device.hostname = obtain_hostname(show_ver)
+##    net_device.serial_number = obtain_serial_number(show_ver)
+##    net_device.device_type = obtain_device_type(net_device.model)
+
+
+def obtain_vendor_model(show_ver):
+    '''
+    Obtain vendor and model from show version data
+    '''
+    # '(.+?) ' means any sequence of one or more characters followed by space (shortest match)
+    match = re.search(r"cisco (.+?) .+bytes of memory", show_ver)
+    
+    #print (match.group(0))
+    #print (match.group(1))
+    #print (match.group(2))
+    #match = re.search(r"Cisco (.+?) ", show_ver)
+    
+    if match:
+        return ("Cisco", match.group(1))
+    else:
+        return ("None", "None")
+
+def obtain_os_version(show_ver):
+    '''
+     Obtain os version from show version data
+    '''
+    # (.+?), means any sequence of one or more characters followed by comma (shortest match)
+    #match = re.search(r"Cisco IOS Software.*Version (.+?),", show_ver)
+    match = re.search(r"IOS.*Version (.+?),", show_ver)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+def obtain_uptime(show_ver):
+    '''
+    Obtain uptime from show version data
+    '''
+    match = re.search(r".* uptime is .*", show_ver)
+    #print(type(match))
+    if match:
+        uptime_str = match.group().strip()
+        uptime_obj = Uptime(uptime_str)
+        return uptime_obj.uptime_seconds()
+    else:
+        return "None"
+
+def obtain_hostname(show_ver):
+    '''
+    Example string from Cisco IOS:
+    twb-sf-881 uptime is 14 weeks, 4 days, 22 hours, 59 minutes
+    return the hostname, else None
+    '''
+
+    match = re.search(r"(.+) uptime is .+", show_ver)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+def obtain_serial_number(show_ver):
+    '''
+    Example string from Cisco IOS:
+    Processor board ID FTX1000008X
+    return the serial_number, else None
+    '''
+
+    match = re.search(r"Processor board ID (.+)", show_ver)
+    if match:
+        return match.group(1).strip()
+    else:
+        return None
+
+def obtain_device_type(model):
+    '''
+    Determine the device_type based on the model
+    '''
+
+    if '2610' in model:
+        return 'router'
+    else:
+        return 'switch'
